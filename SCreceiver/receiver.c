@@ -424,13 +424,12 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 					break;
 			}
 			end_error = j - start_file2;
+			printf("Error(%d): %d - %d bits\n", m + 1, start_error, end_error);
 		}
 		
 		error_packet += abs((end_file2 - start_file2) - (end_file1 - start_file1));
 		error = (error_packet + error_sync) / (1328 + (end_file2 - start_file2)) * 100;
-
 		printf("Packet error(%d): %3.3f %%\n", m + 1, error);
-		printf("Error(%d): %d - %d bits\n", m + 1, start_error, end_error);
 		error_packet = 0;
 		error_sync = 0;
 	}
