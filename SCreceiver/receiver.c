@@ -199,13 +199,19 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	unsigned int sample;
 	int count;
 	unsigned int sample_count;
+	unsigned int bit_count = 0;
 	int sync_count = 0;
 	int start_count = 0;
+	int midl_count = 0;
+	int end_count = 0;
 	int packet_count = 0;
 	/* комбинация для синхронизации */
-	char sync[10] = { '0', '1', '0', '1', '0', '1', '0', '1', '0', '1' };
-	char packet[12] = { '1', '1', '1', '1', '1', '0', '0', '1', '1', '1', '1', '1' };
+	char sync[20] = { '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1' };
+	char packet_start[12] = { '1', '1', '1', '1', '1', '0', '0', '1', '1', '1', '1', '1' };
+	char packet_midl[12] = { '0', '0', '1', '0', '0', '0', '0', '0', '0', '1', '0', '0' };
+	char packet_end[12] = { '0', '0', '1', '0', '0', '1', '0', '0', '1', '1', '1', '1' };
 	char bit;
+	char bits[12];
 	/* вычисление длительности одного сэмпла
 	и количества сэмплов на один бит */
 	double T = 1.0 / sample_rate;
@@ -291,10 +297,10 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 					bit = '0';
 				}
 				/* если синхронизация не установлена, то ищем синхропосылку */
-				if (sync_count < 10) {
+				if (sync_count < 20) {
 					if (bit == sync[sync_count]) {
 						sync_count++;
-						if (sync_count == 10)
+						if (sync_count == 20)
 							printf("Sync: %3.3f second\n", (clock() - time) / CLOCKS_PER_SEC);
 					}
 					else 
@@ -302,31 +308,62 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 				}
 				else {
 					fprintf(ptr, "%c", bit);
-					if (start_count < 12) {
-						if (bit == packet[start_count]) {
-							start_count++;
+					if (bit_count < 12) {
+						bits[bit_count] = bit;
+						bit_count++;
+					}
+					else {
+						for (int i = 1; i < 12; i++) {
+							bits[i - 1] = bits[i];
+						}
+						bits[11] = bit;
+						if (start_count < 12 && midl_count < 12 && end_count < 12) {
+							for (int i = 0; i < 12; i++) {
+								if (bits[i] == packet_start[i])
+									start_count++;
+								else start_count = 0;
+								if (bits[i] == packet_midl[i])
+									midl_count++;
+								else midl_count = 0;
+								if (bits[i] == packet_end[i])
+									end_count++;
+								else end_count = 0;
+							}
+							
 							if (start_count == 12) {
 								sample_count = 2676 * N + sample;
 								fseek(ptr, -12, SEEK_CUR);
-								fprintf(ptr, "1н11110011111");
+								fprintf(ptr, "%s", "н111100111110");
+							}
+
+							if (midl_count == 12) {
+								sample = sample - 121 * N;
+								sample_count = 2687 * N + sample;
+								fprintf(ptr, "%c", 'н');
+							}
+
+							if (end_count == 12) {
+								sample = sample - 243 * N;
+								sample_count = 2687 * N + sample;
+								fprintf(ptr, "%c", 'н');
 							}
 						}
-						else start_count = 0;
-					}
-					else {
-						if (sample >= sample_count) {
-							sync_count = 0;
-							start_count = 0;
-							time = clock();
-							fprintf(ptr, "%c", 'к');
-							packet_count++;
+						else {
+							if (sample >= sample_count) {
+								sync_count = 0;
+								start_count = 0;
+								midl_count = 0;
+								end_count = 0;
+								time = clock();
+								fprintf(ptr, "%c", 'к');
+								packet_count++;
+							}
 						}
-							
 					}
 				}
 			}
 			else {
-				if (sync_count == 10)
+				if (sync_count == 20)
 					time = clock();
 				sync_count = 0;
 				fprintf(ptr, "%c", 'x');
