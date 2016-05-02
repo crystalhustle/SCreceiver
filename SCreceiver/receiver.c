@@ -196,10 +196,12 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	long long Constant = 0;
 	/* вычисление шумового порога */
 	long long threshold = (long long)pow((sample_rate / SAMPLE_RATE), 2) * STEP;
-	unsigned int sample;
+	unsigned int sample = 0;
 	int count;
 	unsigned int sample_count;
 	unsigned int bit_count = 0;
+	unsigned int bit_count_reference;
+	unsigned int registr_count = 0;
 	int sync_count = 0;
 	int start_count = 0;
 	int midl_count = 0;
@@ -238,7 +240,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	printf("Constant: %I64d\n", Constant);
 	double time = clock();
 	/* пока остается еще как минимум N сэмплов */
-	sample = 0;
 	while (sample <= num_samples - N) {
 		count = 0;
 		while (count < N) {
@@ -289,94 +290,95 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 			/* находим среднее значение разности за последние N/2 выходов */
 			Filter[0] /= N / 2;
 			/* если средне значение выше порога шума, то принемаем решение */
-			if (Filter[0] > threshold || Filter[0] < -threshold/10) {
-				if (Filter[0] > 0) {
-					bit = '1';
-				}
-				else {
-					bit = '0';
-				}
-				/* если синхронизация не установлена, то ищем синхропосылку */
-				if (sync_count < 20) {
-					if (bit == sync[sync_count]) {
-						sync_count++;
-						if (sync_count == 20) {
-							printf("Sync: %3.3f second\n", (clock() - time) / CLOCKS_PER_SEC);
-							fprintf(ptr, "%s", "01010101010101010101");
-						}
-					}
-					else 
-						sync_count = 0;
-				}
-				else {
-					fprintf(ptr, "%c", bit);
-					if (bit_count < 12) {
-						bits[bit_count] = bit;
-						bit_count++;
-					}
-					else {
-						for (int i = 1; i < 12; i++) {
-							bits[i - 1] = bits[i];
-						}
-						bits[11] = bit;
-						bit_count++;
-						if (start_count < 12 && midl_count < 12 && end_count < 12) {
-							for (int i = 0; i < 12; i++) {
-								if (bits[i] == packet_start[i])
-									start_count++;
-								else start_count = 0;
-								if (bits[i] == packet_midl[i])
-									midl_count++;
-								else midl_count = 0;
-								if (bits[i] == packet_end[i])
-									end_count++;
-								else end_count = 0;
-							}
-							
-							if (start_count == 12) {
-								sample_count = 2675 * N + sample;
-								fseek(ptr, -12, SEEK_CUR);
-								fprintf(ptr, "%s", "н111100111110");
-							}
-							else start_count = 0;
-
-							if (midl_count == 12) {
-								sample = sample - 132 * N;
-								sample_count = 2687 * N + sample;
-								fprintf(ptr, "%c", 'н');
-							}
-							else midl_count = 0;
-
-							if (end_count == 12) {
-								sample = sample - 256 * N;
-								sample_count = 2687 * N + sample;
-								fprintf(ptr, "%c", 'н');
-							}
-							else end_count = 0;
-						}
-						else {
-							if (sample >= sample_count) {
-								sync_count = 0;
-								bit_count = 0;
-								start_count = 0;
-								midl_count = 0;
-								end_count = 0;
-								time = clock();
-								fprintf(ptr, "%c", 'к');
-								packet_count++;
-							}
-						}
-					}
-				}
+			if (Filter[0] > 0) {
+				bit = '1';
 			}
 			else {
-				if (sync_count == 20)
-					time = clock();
-				sync_count = 0;
-				fprintf(ptr, "%c", 'x');
+				bit = '0';
 			}
+			bit_count++;
+			bit_count_reference = (sample + N) / N;
+			if (bit_count < bit_count_reference) {
+				for (unsigned int i = 0; i < bit_count_reference - bit_count; i++) {
+					fprintf(ptr, "%c", 'x');
+				}
+				bit_count = bit_count_reference;
+			}
+			fprintf(ptr, "%c", bit);
+			/* если синхронизация не установлена, то ищем синхропосылку */
+			if (sync_count < 20) {
+				if (bit == sync[sync_count]) {
+					sync_count++;
+					if (sync_count == 20) {
+						printf("Sync: %3.3f second\n", (clock() - time) / CLOCKS_PER_SEC);
+						//fprintf(ptr, "%s", "01010101010101010101");
+					}
+				}
+				else 
+					sync_count = 0;
+			}
+			else {
+				//fprintf(ptr, "%c", bit);
+				if (registr_count < 12) {
+					bits[registr_count] = bit;
+					registr_count++;
+				}
+				else {
+					for (int i = 1; i < 12; i++) {
+						bits[i - 1] = bits[i];
+					}
+					bits[11] = bit;
+					if (start_count < 12 && midl_count < 12 && end_count < 12) {
+						for (int i = 0; i < 12; i++) {
+							if (bits[i] == packet_start[i])
+								start_count++;
+							else start_count = 0;
+							if (bits[i] == packet_midl[i])
+								midl_count++;
+							else midl_count = 0;
+							if (bits[i] == packet_end[i])
+								end_count++;
+							else end_count = 0;
+						}
+							
+						if (start_count == 12) {
+							sample_count = 2675 * N + sample;
+							fseek(ptr, -12, SEEK_CUR);
+							fprintf(ptr, "%s", "н111100111110");
+						}
+						else start_count = 0;
 
-		}
+						if (midl_count == 12) {
+							sample = sample - 132 * N;
+							bit_count -= 132;
+							sample_count = 2687 * N + sample;
+							fprintf(ptr, "%c", 'н');
+						}
+						else midl_count = 0;
+
+						if (end_count == 12) {
+							sample = sample - 256 * N;
+							bit_count -= 256;
+							sample_count = 2687 * N + sample;
+							fprintf(ptr, "%c", 'н');
+						}
+						else end_count = 0;
+					}
+					else {
+						if (sample >= sample_count) {
+							sync_count = 0;
+							registr_count = 0;
+							start_count = 0;
+							midl_count = 0;
+							end_count = 0;
+							time = clock();
+							fprintf(ptr, "%c", 'к');
+							packet_count++;
+						}
+					}
+				}
+			}
+	}
 	}
 	if (sync_count < 10) {
 		printf("Bad Sync...\n");
@@ -477,18 +479,6 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 		error_packet = 0;
 		error_sync = 0;
 	}
-
-	/* побайтово сравниваем файлы м-д собой */
-	/*for (unsigned int i = 0; i < size_ptr2; i++) {
-		if (buf1[i] != buf2[i]) 
-			error++;
-		if (i == size_ptr1 - 1) 
-			break;
-	}
-	/* к количеству несовпадений прибавляем разность в размерах
-	и находим процентное содержание ошибок*/
-	/*error += abs(size_ptr2 - size_ptr1);
-	error = error / size_ptr2 * 100;*/
 
 	free(buf1);
 	free(buf2);
