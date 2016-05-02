@@ -352,6 +352,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 							sample = sample - 132 * N;
 							bit_count -= 132;
 							sample_count = 2687 * N + sample;
+							fseek(ptr, -132, SEEK_CUR);
 							fprintf(ptr, "%c", 'н');
 						}
 						else midl_count = 0;
@@ -360,6 +361,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 							sample = sample - 256 * N;
 							bit_count -= 256;
 							sample_count = 2687 * N + sample;
+							fseek(ptr, -256, SEEK_CUR);
 							fprintf(ptr, "%c", 'н');
 						}
 						else end_count = 0;
