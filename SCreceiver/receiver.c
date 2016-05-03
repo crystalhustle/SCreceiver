@@ -196,7 +196,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	long long Constant = 0;
 	/* вычисление шумового порога */
 	long long threshold = (long long)pow((sample_rate / SAMPLE_RATE), 2) * STEP;
-	unsigned int sample = 0;
+	unsigned int sample = 0, old_sample = 0;
 	int count;
 	unsigned int sample_count;
 	unsigned int bit_count = 0;
@@ -298,6 +298,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 			}
 			bit_count++;
 			bit_count_reference = (sample + N) / N;
+			old_sample = sample;
 			if (bit_count < bit_count_reference) {
 				for (unsigned int i = 0; i < bit_count_reference - bit_count; i++) {
 					fprintf(ptr, "%c", 'x');
@@ -311,14 +312,12 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 					sync_count++;
 					if (sync_count == 20) {
 						printf("Sync: %3.3f second\n", (clock() - time) / CLOCKS_PER_SEC);
-						//fprintf(ptr, "%s", "01010101010101010101");
 					}
 				}
 				else 
 					sync_count = 0;
 			}
 			else {
-				//fprintf(ptr, "%c", bit);
 				if (registr_count < 12) {
 					bits[registr_count] = bit;
 					registr_count++;
@@ -390,7 +389,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	free(SINf1);
 	free(COSf0);
 	free(COSf1);
-
+	printf("packet: %d\nbits: %d\norigin bits: %d\n", packet_count, bit_count, bit_count_reference);
 	return packet_count;
 }
 
