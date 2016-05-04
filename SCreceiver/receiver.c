@@ -200,7 +200,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	unsigned int sample_count;
 	int count;
 	unsigned int bit_count = 0;
-	unsigned int bit_count_reference;
+//	unsigned int bit_count_reference;
 	unsigned int bit_count_in_packet = 0;
 	unsigned int registr_count = 0;
 	int sync_count = 0;
@@ -358,6 +358,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 						}
 							
 						if (start_count == 12) {
+							sample_count = sample;
 							sample = sample - 12 * N;
 							bit_count -= 12;
 							fseek(ptr, -12, SEEK_CUR);
@@ -383,6 +384,10 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 								sample = sample_count;
 							}
 						}
+						else 
+							if (bit_count_in_packet == 12) {
+								sample = sample_count;
+							}
 						if (bit_count_in_packet >= 2687) {
 							sync_count = 0;
 							registr_count = 0;
