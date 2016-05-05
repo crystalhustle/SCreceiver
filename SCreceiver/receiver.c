@@ -199,12 +199,10 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	unsigned int sample = 0;
 	unsigned int sample_count;
 	int count;
-	unsigned int bit_count = 0;
 	unsigned int bit_count_in_packet = 0;
 	unsigned int registr_count = 0;
 	int sync_count = 0;
 	int start_count = 0;
-	int midl_count = 0;
 	int end_count = 0;
 	int packet_count = 0;
 	/* комбинация для синхронизации */
@@ -297,10 +295,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 				bit = '0';
 			}
 
-			bit_count++;
-			fprintf(ptr, "%c", bit);
-			bit_count_in_packet++;
-			//printf("%d	%c\n", bit_count, bit);
 			/* если синхронизация не установлена, то ищем синхропосылку */
 			if (sync_count < 20) {
 				if (bit == sync[sync_count]) {
@@ -313,6 +307,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 					sync_count = 0;
 			}
 			else {
+				fprintf(ptr, "%c", bit);
 				if (registr_count < 12) {
 					bits[registr_count] = bit;
 					registr_count++;
@@ -322,7 +317,10 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 						bits[i - 1] = bits[i];
 					}
 					bits[11] = bit;
-					if (start_count < 12 && midl_count < 12 && end_count < 12) {
+				}
+
+				if (registr_count == 12) {
+					if (start_count < 12 && end_count < 12) {
 						for (int i = 0; i < 12; i++) {
 							if (bits[i] == packet_start[i])
 								start_count++;
@@ -331,42 +329,66 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 								end_count++;
 							else end_count = 0;
 						}
-							
+
 						if (start_count == 12) {
-							sample = sample - 12 * N;
-							sample_count = sample + 2687*N;
-							bit_count -= 12;
+							sample_count = sample + 2675 * N;
 							fseek(ptr, -12, SEEK_CUR);
-							fprintf(ptr, "%c", 'н');
-							bit_count_in_packet = 0;
+							fprintf(ptr, "%s", "н111100111110");
+							bit_count_in_packet = 12;
 						}
 						else start_count = 0;
 
 						if (end_count == 12) {
 							sample = sample - 256 * N;
 							sample_count = sample + 2687 * N;
-							bit_count -= 256;
-							fseek(ptr, -256, SEEK_CUR);
 							fprintf(ptr, "%c", 'н');
 							bit_count_in_packet = 0;
 						}
 						else end_count = 0;
 					}
-					else {
-						if (bit_count_in_packet >= 2687) {
-							sync_count = 0;
-							registr_count = 0;
-							start_count = 0;
-							end_count = 0;
-							bit_count_in_packet = 0;
-							time = clock();
-							fprintf(ptr, "%c", 'к');
-							packet_count++;
+				}
+				
+				if (start_count == 12 || end_count == 12) {
+					
+					bit_count_in_packet++;
+					//printf("%d\n", bit_count_in_packet);
+
+					if (end_count == 12 && start_count == 0) {
+						registr_count = 1;
+						bits[0] = bits[11];
+						start_count = 12;
+					}
+
+					if (registr_count == 12 && start_count == 12 && end_count >= 12) {
+						end_count = 12;
+						for (int i = 0; i < 12; i++) {
+							if (bits[i] == packet_end[i])
+								end_count++;
+							else end_count = 12;
 						}
+						if (end_count == 24) {
+							end_count = 0;
+							sample = sample - 256 * N;
+							sample_count = sample + 2687 * N;
+							fseek(ptr, -2 * bit_count_in_packet, SEEK_CUR);
+							fprintf(ptr, "%c", 'н');
+							bit_count_in_packet = 0;
+						}
+					}
+					
+					if (sample >= sample_count) {
+						sync_count = 0;
+						registr_count = 0;
+						start_count = 0;
+						end_count = 0;
+						bit_count_in_packet = 0;
+						time = clock();
+						fprintf(ptr, "%c", 'к');
+						packet_count++;
 					}
 				}
 			}
-	}
+		}
 	}
 	if (sync_count < 10) {
 		printf("Bad Sync...\n");
@@ -376,7 +398,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	free(SINf1);
 	free(COSf0);
 	free(COSf1);
-	printf("Packet: %d\nBits: %d\nOrigin bits: %d\n", packet_count, bit_count, num_samples/N);
+	printf("Packet: %d\nOrigin bits: %d\n", packet_count, num_samples/N);
 	return packet_count;
 }
 
