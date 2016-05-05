@@ -300,18 +300,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 
 			bit_count++;
 			unsigned int bit_dif = (sample + N - old_sample) / N;
-			//bit_count_reference = (sample + N) / N;
-			/*if (bit_count < bit_count_reference) {
-				for (unsigned int i = 0; i < bit_count_reference - bit_count; i++) {
-					fprintf(ptr, "%c", 'x');
-					bit_count_in_packet++;
-					//printf("%d	%c\n", bit_count + i, 'x');
-				}
-				bit_count = bit_count_reference;
-			}
-			if (bit_count > bit_count_reference) {
-				sample = bit_count * N;
-			}*/
 			if (bit_dif > 1) {
 				for (unsigned int i = 0; i < bit_dif - 1; i++) {
 					fprintf(ptr, "%c", 'x');
@@ -362,7 +350,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 							sample = sample - 12 * N;
 							bit_count -= 12;
 							fseek(ptr, -12, SEEK_CUR);
-							//fprintf(ptr, "%s", "н111100111110");
 							fprintf(ptr, "%c", 'н');
 							bit_count_in_packet = 0;
 						}
