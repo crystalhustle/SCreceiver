@@ -408,13 +408,13 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 	unsigned int size_ptr1;
 	unsigned int size_ptr2;
-	unsigned int start_file1, end_file1 = 0;
-	unsigned int start_file2, end_file2 = 0;
+	unsigned int start_file1, end_file1;
+	unsigned int start_file2, end_file2;
 	unsigned int start_error, end_error;
 	unsigned int i, j;
-	double error_sync = 0;
-	double error_packet = 0;
-	double error;
+	unsigned int error_sync;
+	char sync[20] = { '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1', '0', '1' };
+	unsigned int sync_count;
 	
 	/* определяем размер файлов */
 	fseek(ptr1, 0, SEEK_END);
@@ -441,53 +441,67 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 	}
 	start_file2 = j;
 
+	while (buf2[j] != 'к') {
+		j++;
+	}
+	end_file2 = j;
+
+	end_file1 = 0;
 	for (int m = 0; m < packet_count; m++) {
 		i = end_file1;
+		
 		while (buf1[i] != 'н') {
 			i++;
 		}
 		start_file1 = i;
 
-		for (int k = 1; k < 1329; k++) {
-			if (buf1[start_file1 - k] != buf2[start_file2 - k])
-				error_sync++;
-		}
-
-		i = start_file1 + 1;
-		j = start_file2 + 1;
-		while (buf2[j] != 'к') {
-			if (buf1[i] != 'к') {
-				if (buf1[i] != buf2[j]) {
-					if (error_packet == 0)
-						start_error = j - start_file2;
-					error_packet++;
-				}
-					
-				i++;
-			}
-			j++;
+		while (buf1[i] != 'к') {
+			i++;
 		}
 		end_file1 = i;
-		end_file2 = j;
 
-		if (error_packet > 0) {
+		error_sync = 1;
+		sync_count = 0;
+		while (sync_count < 20) {
+			if (buf1[start_file1 - error_sync] == sync[sync_count])
+				sync_count++;
+			else
+				sync_count = 0;
+			error_sync++;
+		}
+		error_sync -= 22;
+
+		printf("Sync error(%d): %d\n", m + 1, error_sync);
+
+		if (error_sync > 0)
+			start_error = 1;
+		
+		else {
+			i = start_file1 + 1;
+			j = start_file2 + 1;
+			while (buf1[i] == buf2[j]) {
+				i++;
+				j++;
+				if (buf2[j] == 'к')
+					break;
+			}
+			start_error = j - start_file2;
+		}
+
+		if (start_error >= end_file2 - start_file2)
+			end_error = 1;
+
+		else {
 			i = end_file1 - 1;
 			j = end_file2 - 1;
 			while (buf1[i] == buf2[j]) {
 				i--;
 				j--;
-				if (i <= 0 || j <= 0)
+				if (buf2[j] == 'н')
 					break;
 			}
-			end_error = j - start_file2;
-			printf("Error(%d): %d - %d bits\n", m + 1, start_error, end_error);
+			end_error = 2687 - (end_file2 - j);
 		}
-		
-		error_packet += abs((end_file2 - start_file2) - (end_file1 - start_file1));
-		error = (error_packet + error_sync) / (1328 + (end_file2 - start_file2)) * 100;
-		printf("Packet error(%d): %3.3f %%\n", m + 1, error);
-		error_packet = 0;
-		error_sync = 0;
 	}
 
 	free(buf1);
