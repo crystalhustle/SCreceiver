@@ -196,11 +196,10 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	long long Constant = 0;
 	/* вычисление шумового порога */
 	long long threshold = (long long)pow((sample_rate / SAMPLE_RATE), 2) * STEP;
-	unsigned int sample = 0, old_sample = 0;
+	unsigned int sample = 0;
 	unsigned int sample_count;
 	int count;
 	unsigned int bit_count = 0;
-//	unsigned int bit_count_reference;
 	unsigned int bit_count_in_packet = 0;
 	unsigned int registr_count = 0;
 	int sync_count = 0;
@@ -299,18 +298,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 			}
 
 			bit_count++;
-			unsigned int bit_dif = (sample + N - old_sample) / N;
-			if (bit_dif > 1) {
-				for (unsigned int i = 0; i < bit_dif - 1; i++) {
-					fprintf(ptr, "%c", 'x');
-					bit_count_in_packet++;
-					//printf("%d	%c\n", bit_count + i, 'x');
-				}
-				bit_count += bit_dif - 1;
-			}
-			if (bit_dif == 0) {
-				sample = bit_count * N;
-			}
 			fprintf(ptr, "%c", bit);
 			bit_count_in_packet++;
 			//printf("%d	%c\n", bit_count, bit);
@@ -346,8 +333,8 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 						}
 							
 						if (start_count == 12) {
-							sample_count = sample;
 							sample = sample - 12 * N;
+							sample_count = sample + 2687*N;
 							bit_count -= 12;
 							fseek(ptr, -12, SEEK_CUR);
 							fprintf(ptr, "%c", 'н');
@@ -356,8 +343,8 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 						else start_count = 0;
 
 						if (end_count == 12) {
-							sample_count = sample;
 							sample = sample - 256 * N;
+							sample_count = sample + 2687 * N;
 							bit_count -= 256;
 							fseek(ptr, -256, SEEK_CUR);
 							fprintf(ptr, "%c", 'н');
@@ -366,15 +353,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 						else end_count = 0;
 					}
 					else {
-						if (end_count == 12) {
-							if (bit_count_in_packet == 256) {
-								sample = sample_count;
-							}
-						}
-						else 
-							if (bit_count_in_packet == 12) {
-								sample = sample_count;
-							}
 						if (bit_count_in_packet >= 2687) {
 							sync_count = 0;
 							registr_count = 0;
@@ -388,7 +366,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 					}
 				}
 			}
-			old_sample = sample + N;
 	}
 	}
 	if (sync_count < 10) {
