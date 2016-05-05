@@ -471,8 +471,6 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 		}
 		error_sync -= 22;
 
-		printf("Sync error(%d): %d\n", m + 1, error_sync);
-
 		if (error_sync > 0)
 			start_error = 1;
 		
@@ -502,6 +500,13 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 			}
 			end_error = 2687 - (end_file2 - j);
 		}
+
+		if (end_error >= start_error) {
+			printf("Error(%d): %f %%\n", m + 1, (double)(end_error - start_error + 1 + error_sync) / 4015 * 100);
+			printf("Error range(%d): %d - %d\n", m + 1, start_error, end_error);
+			printf("Sync error(%d): %d\n", m + 1, error_sync);
+		}
+
 	}
 
 	free(buf1);
