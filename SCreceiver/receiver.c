@@ -275,9 +275,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 			}
 			count++;
 			sample++;
-			if (sample > num_samples - N) {
-				break;
-			}
 		}
 		/* если счетчик принятия решений достиг N */
 		if (count == N) {
