@@ -29,13 +29,9 @@ int main() {
 	/* ввод имени WAV файла дл€ обработки
 	и имени файла дл€ записи результата */
 	printf("Enter input filename:\n");
-	fflush(stdin);
 	gets(in_filename);
-	//scanf("%s", in_filename);
 	printf("Enter output filename:\n");
-	fflush(stdin);
 	gets(out_filename);
-	//scanf("%s", out_filename);
 	
 
 	/* открытие файлов дл€ чтени€ или дл€ записи */
@@ -61,20 +57,19 @@ int main() {
 		/* ввод частоты "0" и "1" */
 		unsigned int f0;
 		unsigned int f1;
-		/* printf("Enter f0: \n");
-		fflush(stdin);
+		printf("Enter f0: \n");
 		scanf("%d", &f0);
 		printf("Enter f1: \n");
-		fflush(stdin);
-		scanf("%d", &f1); */
+		scanf("%d", &f1);
 
-		f0 = 1300;
-		f1 = 2100;
+		unsigned int speed;
+		printf("Enter speed: \n");
+		scanf("%d%*c", &speed);
 
 		/* демодул€ци€ данных WAV файла */
 		printf("Sync and Demode sample data...\n");
 		double time = clock();
-		int packet_count = receiver(num_samples, dump, sample_rate, f0, f1, fout);
+		int packet_count = receiver(num_samples, dump, sample_rate, f0, f1, speed, fout);
 		printf("Time: %f second\n", (clock() - time) / CLOCKS_PER_SEC);
 		free(dump);
 
@@ -86,11 +81,11 @@ int main() {
 		if (c == 'Y' || c == 'y') {
 			printf("Enter reference filename:\n");
 			char *check_filename = (char*)malloc(sizeof(char) * 1024);
-			fflush(stdin);
 			gets(check_filename);
 			FILE *fcheck = fopen(check_filename, "rb");
 			if (!fcheck) {
 				printf("Error!\n");
+				_getch();
 				exit(1);
 			}
 			comparison_files(fout, packet_count, fcheck);

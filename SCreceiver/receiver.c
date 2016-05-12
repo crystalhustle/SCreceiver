@@ -186,7 +186,7 @@ void data_read(unsigned int size_of_each_sample, int *dump, unsigned int num_sam
 /*-----------------------------------------------
 Функция демодуляции и синхронизации приемного УПС
 -------------------------------------------------*/
-int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsigned int f0, unsigned int f1, FILE *ptr) {
+int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsigned int f0, unsigned int f1, unsigned int speed, FILE *ptr) {
 	long long integral_SINf0;
 	long long integral_COSf0;
 	long long integral_SINf1;
@@ -215,7 +215,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	/* вычисление длительности одного сэмпла
 	и количества сэмплов на один бит */
 	double T = 1.0 / sample_rate;
-	int N = sample_rate / SPEED;
+	int N = sample_rate / speed;
 	double* t = (double*) malloc(N * sizeof(double));
 	double* SINf0 = (double*) malloc(N * sizeof(double));
 	double* COSf0 = (double*) malloc(N * sizeof(double));
@@ -351,7 +351,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 				if (start_count == 12 || end_count == 12) {
 					
 					bit_count_in_packet++;
-					//printf("%d\n", bit_count_in_packet);
 
 					if (end_count == 12 && start_count == 0) {
 						registr_count = 1;
