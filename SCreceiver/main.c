@@ -61,7 +61,7 @@ int main() {
 		scanf("%d", &f0);
 		printf("Enter f1: \n");
 		scanf("%d", &f1);
-
+		/* ввод скорости передачи данных */
 		unsigned int speed;
 		printf("Enter speed: \n");
 		scanf("%d%*c", &speed);

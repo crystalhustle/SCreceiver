@@ -17,10 +17,6 @@
 #include <math.h>
 #include "wave.h"
 
-#define SPEED 1200
-#define STEP 0
-#define SAMPLE_RATE 44100
-
 /*--------------------------------
 Функция чтения заголовка WAV файла
 ---------------------------------*/
@@ -195,7 +191,6 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 	long long Energyf1;
 	long long Constant = 0;
 	/* вычисление шумового порога */
-	long long threshold = (long long)pow((sample_rate / SAMPLE_RATE), 2) * STEP;
 	unsigned int sample = 0;
 	unsigned int sample_count;
 	int count;
@@ -284,7 +279,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 			}
 			/* находим среднее значение разности за последние N/2 выходов */
 			Filter[0] /= N / 2;
-			/* если средне значение выше порога шума, то принемаем решение */
+			
 			if (Filter[0] > 0) {
 				bit = '1';
 			}
@@ -303,6 +298,7 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 				else 
 					sync_count = 0;
 			}
+			/* иначе начинаем заполнять регистр и искать начало и конец заголовка пакета */
 			else {
 				fprintf(ptr, "%c", bit);
 				if (registr_count < 12) {
@@ -344,11 +340,12 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 						else end_count = 0;
 					}
 				}
-				
+				/* если нашли начало или конец, начинаем считать биты в пакете */
 				if (start_count == 12 || end_count == 12) {
 					
 					bit_count_in_packet++;
-
+					/* если нашли конец, то возвращаемся на 256*N семплов назад
+					и считаем принятые биты */
 					if (end_count == 12 && start_count == 0) {
 						registr_count = 1;
 						bits[0] = bits[11];
@@ -362,6 +359,8 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 								end_count++;
 							else end_count = 12;
 						}
+						/* когда находим конец во второй раз, возвращаемся назад
+						и определяем начало пакета */
 						if (end_count == 24) {
 							end_count = 0;
 							sample = sample - 256 * N;
@@ -371,7 +370,8 @@ int receiver(unsigned int num_samples, int *dump, unsigned int sample_rate, unsi
 							bit_count_in_packet = 0;
 						}
 					}
-					
+					/* если дошли до конца пакета, то сбрасываем синхронизацию, регистр, 
+					счетцик бит и увеличиваем счетчик пакетов*/
 					if (sample >= sample_count) {
 						sync_count = 0;
 						registr_count = 0;
@@ -430,7 +430,7 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 
 	fread(buf1, sizeof(char), size_ptr1, ptr1);
 	fread(buf2, sizeof(char), size_ptr2, ptr2);
-
+	/* определяем начало и конец пакета в эталонном файле */
 	j = 0;
 	while (buf2[j] != 'н') {
 		j++;
@@ -445,7 +445,7 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 	end_file1 = 0;
 	for (int m = 0; m < packet_count; m++) {
 		i = end_file1;
-		
+		/* определяем начало и конец текущего пакета в проверяемом файле */
 		while (buf1[i] != 'н') {
 			i++;
 		}
@@ -455,7 +455,7 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 			i++;
 		}
 		end_file1 = i;
-
+		/* ищем совпадение синхропосылок от начала пакетов*/
 		error_sync = 1;
 		sync_count = 0;
 		while (sync_count < 20) {
@@ -465,11 +465,13 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 				sync_count = 0;
 			error_sync++;
 		}
+		/* количество бит до совпадения - это и есть ошибки */
 		error_sync -= 22;
-
+		/* если ошибки в синхропосылке есть, значит и 
+		в пакете они начинаются с 1 бита, если они в нем есть  */
 		if (error_sync > 0)
 			start_error = 1;
-		
+		/* ищем начало ошибок в пакете */
 		else {
 			i = start_file1 + 1;
 			j = start_file2 + 1;
@@ -481,10 +483,11 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 			}
 			start_error = j - start_file2;
 		}
-
+		/* если начало ошибок за пределами пакета, 
+		значит ошибок в пакете нет и их конец искать не нужно */
 		if (start_error >= end_file2 - start_file2)
 			end_error = 1;
-
+		/* ищем конец ошибок в пакете */
 		else {
 			i = end_file1 - 1;
 			j = end_file2 - 1;
@@ -496,7 +499,8 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 			}
 			end_error = 2687 - (end_file2 - j);
 		}
-
+		/* если ошибки в пакете есть,
+		то выводим информацию по ним на экран */
 		if (end_error >= start_error) {
 			printf("Error(%d): %f %%\n", m + 1, (double)(end_error - start_error + 1 + error_sync) / 4015 * 100);
 			printf("Error range(%d): %d - %d\n", m + 1, start_error, end_error);
@@ -504,7 +508,6 @@ void comparison_files(FILE *ptr1, int packet_count, FILE *ptr2) {
 		}
 
 	}
-
 	free(buf1);
 	free(buf2);
 }
